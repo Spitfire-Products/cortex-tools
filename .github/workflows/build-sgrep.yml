@@ -36,11 +36,16 @@ jobs:
           cp target/release/sgrep "../out/sgrep-$V-x86_64-linux-gnu"
           cp target/x86_64-unknown-linux-musl/release/sgrep "../out/sgrep-$V-x86_64-linux-musl"
           file ../out/*; ../out/sgrep-$V-x86_64-linux-gnu --version
-      - name: Model cache (first-use download, vendored so containers never fetch it per task)
+      - name: Model cache (first-use downloads, vendored so containers never fetch them per task)
+        # BOTH embedding models: `--model auto` picks potion-code-16M-v2 for code candidates and potion-base-8M for prose-only
+        # candidates, so a prose corpus triggers a second download — run one code query and one prose query before packing.
         run: |
           mkdir -p smoke && printf 'def parse_config(path):\n    return load(path)\n' > smoke/a.py
           (cd smoke && ../out/sgrep-$V-x86_64-linux-gnu "load configuration" . >/dev/null)
-          tar czf out/sgrep-model-cache-potion-code-16M-v2.tgz -C ~/.cache huggingface
+          mkdir -p prose && printf 'The retry policy waits with exponential backoff and random jitter.\n' > prose/note.txt
+          (cd prose && ../out/sgrep-$V-x86_64-linux-gnu "retry backoff jitter" . >/dev/null)
+          ls ~/.cache/huggingface/hub | grep -c potion | grep -q 2
+          tar czf out/sgrep-model-cache-v2.tgz -C ~/.cache huggingface/hub/models--minishlab--potion-code-16M-v2 huggingface/hub/models--minishlab--potion-base-8M
       - name: Checksums
         run: cd out && sha256sum * > SHA256SUMS && cat SHA256SUMS
       - name: Release
