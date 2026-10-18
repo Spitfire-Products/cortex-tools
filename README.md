@@ -23,3 +23,9 @@ chmod a+rx /usr/local/bin/sgrep
 (public repo: no billed minutes), writes `SHA256SUMS`, and publishes the release. Nothing runs on a schedule and nothing runs on push;
 a build happens only when a human dispatches it. The first release (`sgrep-0.3.0`, 2026-10-18) was built on a Vast box from the
 default branch at the pinned commit and uploaded by hand with the same asset names.
+
+## Backlog (tools considered for this store, not yet released)
+
+| tool | why | how it would ship |
+|---|---|---|
+| `fd` ([sharkdp/fd](https://github.com/sharkdp/fd), MIT/Apache-2.0) | file-NAME finder to pair with ripgrep's content search; today the harness relies on `rg --files -g PATTERN` and `find`, which work but are slower to write and to run on big trees | no build needed: upstream publishes `fd-vX.Y.Z-x86_64-unknown-linux-{gnu,musl}.tar.gz`; a release here would mirror the pinned asset's binary under our naming + `SHA256SUMS`, then one row in the nexus-cortex `TOOLS_MANIFEST` (`cortex tools install`) and the sandbox Dockerfiles. Added 2026-10-18 while the sgrep steering A/B was running; decide after that readout says whether search steering moves outcomes at all. |
