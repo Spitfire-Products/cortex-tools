@@ -1,5 +1,7 @@
 name: build-sgrep
-# Manual only. Builds context-dot-dev/sgrep at a pinned ref for x86_64 glibc + static musl and publishes a GitHub Release.
+# Manual only. Builds context-dot-dev/sgrep at a pinned ref for x86_64 glibc + static musl (and, in a second job, macOS arm64 —
+# the upstream macOS tarball is cut from the v0.3.0 TAG and lacks --explain/--stdin that main gained after it; both report 0.3.0)
+# and publishes a GitHub Release.
 on:
   workflow_dispatch:
     inputs:
@@ -43,3 +45,25 @@ jobs:
         env: { GH_TOKEN: "${{ github.token }}" }
         run: |
           gh release create "sgrep-$V" out/* --title "sgrep $V" --notes "Built from context-dot-dev/sgrep @ $REF on $(date -u +%F)." --target "${{ github.sha }}" || gh release upload "sgrep-$V" out/* --clobber
+  build-macos:
+    runs-on: macos-14   # arm64; public repo → no billed minutes
+    timeout-minutes: 40
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve pin
+        run: |
+          REF="${{ github.event.inputs.upstream_ref }}"; [ -n "$REF" ] || REF="$(cat tools/sgrep/PIN)"; echo "REF=$REF" >> "$GITHUB_ENV"
+          echo "V=${{ github.event.inputs.version }}" >> "$GITHUB_ENV"
+      - name: Fetch upstream at the pin
+        run: git clone https://github.com/context-dot-dev/sgrep src && cd src && git checkout --quiet "$REF" && git rev-parse HEAD
+      - name: Build
+        run: |
+          cd src && cargo build --release && mkdir -p ../out
+          cp target/release/sgrep "../out/sgrep-$V-aarch64-darwin"
+          ../out/sgrep-$V-aarch64-darwin --version && ../out/sgrep-$V-aarch64-darwin --help | grep -q -- --explain
+      - name: Checksum + upload (appends to the release the linux job created)
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          cd out && shasum -a 256 sgrep-$V-aarch64-darwin > SHA256SUMS.darwin && cat SHA256SUMS.darwin
+          gh release upload "sgrep-$V" sgrep-$V-aarch64-darwin SHA256SUMS.darwin --clobber
