@@ -1,0 +1,45 @@
+name: build-sgrep
+# Manual only. Builds context-dot-dev/sgrep at a pinned ref for x86_64 glibc + static musl and publishes a GitHub Release.
+on:
+  workflow_dispatch:
+    inputs:
+      upstream_ref: { description: "upstream commit or tag (default: tools/sgrep/PIN)", required: false, default: "" }
+      version:      { description: "release version, e.g. 0.3.0", required: true, default: "0.3.0" }
+permissions: { contents: write }
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve pin
+        run: |
+          REF="${{ github.event.inputs.upstream_ref }}"; [ -n "$REF" ] || REF="$(cat tools/sgrep/PIN)"; echo "REF=$REF" >> "$GITHUB_ENV"
+          echo "V=${{ github.event.inputs.version }}" >> "$GITHUB_ENV"
+      - name: Toolchain
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends musl-tools ripgrep >/dev/null
+          rustup target add x86_64-unknown-linux-musl
+      - name: Fetch upstream at the pin
+        run: |
+          git clone https://github.com/context-dot-dev/sgrep src && cd src && git checkout --quiet "$REF" && git rev-parse HEAD
+      - name: Build
+        run: |
+          cd src
+          cargo build --release
+          cargo build --release --target x86_64-unknown-linux-musl
+          mkdir -p ../out
+          cp target/release/sgrep "../out/sgrep-$V-x86_64-linux-gnu"
+          cp target/x86_64-unknown-linux-musl/release/sgrep "../out/sgrep-$V-x86_64-linux-musl"
+          file ../out/*; ../out/sgrep-$V-x86_64-linux-gnu --version
+      - name: Model cache (first-use download, vendored so containers never fetch it per task)
+        run: |
+          mkdir -p smoke && printf 'def parse_config(path):\n    return load(path)\n' > smoke/a.py
+          (cd smoke && ../out/sgrep-$V-x86_64-linux-gnu "load configuration" . >/dev/null)
+          tar czf out/sgrep-model-cache-potion-code-16M-v2.tgz -C ~/.cache huggingface
+      - name: Checksums
+        run: cd out && sha256sum * > SHA256SUMS && cat SHA256SUMS
+      - name: Release
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          gh release create "sgrep-$V" out/* --title "sgrep $V" --notes "Built from context-dot-dev/sgrep @ $REF on $(date -u +%F)." --target "${{ github.sha }}" || gh release upload "sgrep-$V" out/* --clobber
