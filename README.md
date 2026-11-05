@@ -6,12 +6,12 @@ by pinned version with a sha256 check.
 
 | tool | upstream | pin | release | assets |
 |---|---|---|---|---|
-| sgrep | https://github.com/context-dot-dev/sgrep (MIT) | `tools/sgrep/PIN` | `sgrep-0.3.0` | `sgrep-0.3.0-x86_64-linux-gnu`, `sgrep-0.3.0-x86_64-linux-musl` (static, Alpine), `sgrep-model-cache-potion-code-16M-v2.tgz` (the 32 MB model sgrep downloads on first use; untar into `~/.cache`), `SHA256SUMS` |
+| sgrep | https://github.com/context-dot-dev/sgrep (MIT) | `tools/sgrep/PIN` | `sgrep-0.3.0` | `sgrep-0.3.0-x86_64-linux-gnu`, `sgrep-0.3.0-x86_64-linux-musl` (static, Alpine), `sgrep-0.3.0-aarch64-darwin`, `sgrep-0.3.0-x86_64-darwin` (Intel, macOS 11+; its checksum is in `SHA256SUMS.darwin-x64`), `sgrep-model-cache-potion-code-16M-v2.tgz` (the 32 MB model sgrep downloads on first use; untar into `~/.cache`), `SHA256SUMS` |
 
 ## Consuming a release (pattern every consumer follows)
 
 ```sh
-V=0.3.0; T=x86_64-linux-gnu   # or x86_64-linux-musl on Alpine
+V=0.3.0; T=x86_64-linux-gnu   # or x86_64-linux-musl on Alpine, aarch64-darwin / x86_64-darwin on macOS (checksums: SHA256SUMS.darwin / SHA256SUMS.darwin-x64)
 B=https://github.com/Spitfire-Products/cortex-tools/releases/download/sgrep-$V
 curl -fsSL -o /usr/local/bin/sgrep $B/sgrep-$V-$T && curl -fsSL $B/SHA256SUMS | grep " sgrep-$V-$T$" | sed "s# .*# /usr/local/bin/sgrep#" | sha256sum -c -
 chmod a+rx /usr/local/bin/sgrep
